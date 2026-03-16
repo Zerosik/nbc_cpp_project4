@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="nbc_cpp_project4/nbc_cpp_project4.vcxproj" Id="ba55c288-208d-4eb6-8fee-278f97520983" />
+</Solution>
