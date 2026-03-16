@@ -56,10 +56,12 @@ const CraftRecipe* CraftingManager::getRecipeById(int id)
 {
 	for (const auto& rcp : craftRecipes) {
 		if (rcp.getItemId() == id)
-			return &rcp; // 실제 주소를 전달
+			return &rcp;
 	}
-	return nullptr; // 못 찾으면 명확하게 nullptr 반환
+	return nullptr;
 }
+
+//아래처럼하면 댕글링포인터 발생함
 //const CraftRecipe& CraftingManager::getRecipeById(int id)
 //{
 //	for (CraftRecipe rcp : craftRecipes) {
