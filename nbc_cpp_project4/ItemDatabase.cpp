@@ -59,8 +59,6 @@ const Item* ItemDatabase::getItemById(const int id)
 	return nullptr;
 }
 
-
-
 const bool ItemDatabase::isItemExistById(int id)
 {
 	return itemDatabase.contains(id);;
