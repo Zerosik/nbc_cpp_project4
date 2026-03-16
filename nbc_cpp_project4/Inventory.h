@@ -11,6 +11,5 @@ public:
 	bool addItem(int itemId, int count);
 	bool consumeItem(int itemID, int count);
 	bool enoughItem(int itemID, int count);
-	int getCount(int itemId);
 	const std::map<int, int>& getStock() const;
 };

@@ -7,11 +7,6 @@ const std::map<int, int>& Inventory::getStock() const
 	return stock;
 }
 
-int Inventory::getCount(int itemId)
-{
-	return stock[itemId];
-}
-
 bool Inventory::addItem(int itemId, int count)
 {
 	if (stock[itemId] + count > maxStack) { return false; }
