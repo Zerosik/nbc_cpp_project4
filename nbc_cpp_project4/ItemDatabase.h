@@ -3,29 +3,37 @@
 #include <map>
 #include "Item.h"
 
+enum class QueryResultType {
+	Success,//성공
+	InvalidItemType,//아이템 정보 없음
+	AlreadyExist,
+	ItemNotFound,
+	NoAvailableId
+};
+
+struct QueryResult {
+	QueryResultType resultType;
+	int resultItemId;
+};
+
 class ItemDatabase
 {
 private:
 	std::map<int, Item> itemDatabase;
-	static ItemDatabase* instance;
-	void InitializeItemDatabase();
-	ItemDatabase() { InitializeItemDatabase(); }
+	void initializeItemDatabase();
+	ItemDatabase() { initializeItemDatabase(); }
 public:
 	ItemDatabase(const ItemDatabase&) = delete;
 	ItemDatabase& operator=(const ItemDatabase&) = delete;
-	static ItemDatabase* getInstance() {
-		if (instance == nullptr) {
-			instance = new ItemDatabase();
-		}
+	static ItemDatabase& getInstance() {
+		static ItemDatabase instance;
 		return instance;
 	}
-	std::map<int, Item> getAllItemInfo();
-	// 추가되거나 이미 존재하는 아이템의 id를 반환.
-	int tryAddCustomItem(const std::string& name, const std::string& desc);
-	const Item* getItemById(const int id);
-	const bool isItemExistById(const int id);
-	const int isItemExistByName(const std::string& name);
+	~ItemDatabase() {}
+	const std::map<int, Item>& getAllItems() const;
+	QueryResult tryAddCustomItem(const std::string& name, const std::string& desc, ItemType type);
+	bool isItemExistById(int id) const;
+	const Item* getItemById(int id) const;
+	ItemType getItemTypeById(int id) const;
+	QueryResult getItemIdByName(const std::string& name) const;
 };
-
-
-//Meyers' Singleton으로 변경할것.

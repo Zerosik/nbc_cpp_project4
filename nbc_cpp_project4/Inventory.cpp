@@ -1,38 +1,72 @@
 ﻿#include "Inventory.h"
 
-
-
 const std::map<int, int>& Inventory::getStock() const
 {
 	return stock;
 }
 
+int Inventory::getItemCount(int itemId) const
+{
+	auto it = stock.find(itemId);
+	if (it != stock.end()) {
+		return it->second;
+	}
+	return 0;
+}
+
 bool Inventory::addItem(int itemId, int count)
 {
-	if (stock[itemId] + count > maxStack) { return false; }
+	if (count <= 0)
+		return false;
+
+	auto it = stock.find(itemId);
+	if (it == stock.end()) {
+		if (count > maxStack)
+			return false;
+		
+		stock[itemId] = count;
+	}
 	else {
-		stock[itemId] += count;
+		if ((it->second + count) > maxStack)
+			return false;
+		else {
+			it->second += count;
+		}
 	}
 	return true;
 }
 
-bool Inventory::consumeItem(int itemID, int count)
+bool Inventory::consumeItem(int itemId, int count)
 {
-	if (stock.contains(itemID)) {
-		if (stock[itemID] >= count) {
-			stock[itemID] -= count;
-		}
-		//재고가 0이면 제거
-		if (stock[itemID] == 0) { stock.erase(itemID); }
-		return true;
+	if (count <= 0)
+		return false;
+
+	if (!stock.contains(itemId)) {
+		return false;
 	}
-	else { return false; }
+
+	if (stock.at(itemId) < count) {
+		return false;
+	}
+
+	stock[itemId] -= count;
+
+	if (stock[itemId] == 0) {
+		stock.erase(itemId);
+	}
+
+	return true;
 }
 
-bool Inventory::enoughItem(int itemID, int count)
+bool Inventory::hasEnoughItem(int itemId, int count) const
 {
-	if (stock.contains(itemID)) {
-		return stock[itemID] >= count;
+	if (count <= 0)
+		return false;
+
+	auto it = stock.find(itemId);
+	if (it == stock.end()){
+		return false;
 	}
-	else { return false; }
+
+	return it->second >= count;
 }

@@ -6,30 +6,36 @@
 #include <map>
 #include <vector>
 
+enum class CraftResultType {
+	Success,//성공
+	RecipeNotFound,//레시피없음
+	NotEnoughIngredient,//재료부족
+	InvalidItem,//아이템 정보 없음
+};
+
+struct CraftResult {
+	CraftResultType resultType;
+	int resultItemId;
+};
+
 class CraftingManager
 {
 private:
 	std::vector<CraftRecipe> craftRecipes;
-	ItemDatabase* db;
+	ItemDatabase& itemDB;
 	void InitializeRecipes();
 public:
-	CraftingManager(){
-		db = ItemDatabase::getInstance();
+	CraftingManager():itemDB(ItemDatabase::getInstance()){
 		InitializeRecipes();
 	}
-	//아이템 직접 제작 시도, 실패시 -1
-	const int CustomCraft(const std::map<int, int>& items);
-	//특정 아이템 제작, 아이템id, 인벤토리 참조
-	const int Craft(int ItemID, Inventory& inventory);
-
-	const bool addCraftRecipe(const std::map<int, int>& items, const int ResultItemId);
-	//특정 아이템 레시피
-	const CraftRecipe* getRecipeById(int id);
-	//레시피 중 특정 재료를 사용하는 아이템 리스트
-	const std::vector<int> getItemUsingIngredient(const int ingredientId) const;
-	//인벤토리참조하여 가능한 모든 제작 가능한 아이템 반환
-	const std::vector<int> getCraftableItems(Inventory& inventory) const;
-	//모든 레시피 출력
-	const std::vector<CraftRecipe>& getAllRecipes();
+	CraftResult customCraft(const std::map<int, int>& items) const;
+	CraftResult craft(int ItemID, Inventory& inventory);
+	
+	bool addCraftRecipe(const std::map<int, int>& items, int ResultItemId);
+	const CraftRecipe* findRecipeByResultItemId(const int id) const;
+	//입력한 재료를 필요로 하는 아이템들 반환
+	std::vector<int> findRecipesByIngredientId(int ingredientId) const;
+	std::vector<int> findRecipesByInventory(const Inventory& inventory) const;
+	const std::vector<CraftRecipe>& getAllRecipes() const;
 };
 

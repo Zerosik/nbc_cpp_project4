@@ -1,15 +1,16 @@
 ﻿//Inventory.h
 #pragma once
 #include <map>
-#include "ItemDatabase.h"
+
 class Inventory {
 private:
-	int maxStack = 999;
+	const int maxStack = 10;
 	std::map<int, int> stock;
 public:
 	Inventory(){}
+	int getItemCount(int itemId) const;
 	bool addItem(int itemId, int count);
 	bool consumeItem(int itemID, int count);
-	bool enoughItem(int itemID, int count);
+	bool hasEnoughItem(int itemID, int count) const;
 	const std::map<int, int>& getStock() const;
 };
