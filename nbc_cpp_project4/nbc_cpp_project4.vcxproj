@@ -142,6 +142,7 @@
     <ClInclude Include="Inventory.h" />
     <ClInclude Include="Item.h" />
     <ClInclude Include="ItemDatabase.h" />
+    <ClInclude Include="ItemType.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="ClassDiagram.cd" />

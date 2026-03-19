@@ -1,5 +1,5 @@
-﻿//#include "AlchemyWorkshop.h"
-#include "ItemDatabase.h"
+﻿#include "ItemDatabase.h"
+#include "ItemType.h"
 #include "CraftingManager.h"
 #include <iostream>
 
@@ -30,8 +30,8 @@ void printRecipe(ItemDatabase* database, const CraftRecipe& cr, bool printMateri
 	}
 
 }
-void printAllRecipe(ItemDatabase& database, CraftingManager cManager, bool printMaterial = true) {
-	auto& recipes = cManager.getAllRecipes();
+void printAllRecipe(ItemDatabase& database, CraftingManager craftManager, bool printMaterial = true) {
+	auto& recipes = craftManager.getAllRecipes();
 	if (not recipes.size()) {
 		cout << "저장된 레시피가 없습니다" << endl;
 		return;
@@ -90,7 +90,7 @@ int main()
 	ItemDatabase& itemDB = ItemDatabase::getInstance();
 	Inventory inventory{};
 	CraftingManager craftManager{};
-	itemDB.tryAddCustomItem("빈 병", "물약을 담을 빈 병", ItemType::Material);
+	itemDB.tryAddCustomItem("빈 병", "물약을 담을 빈 병", ItemType::Material, 3);
 	inventory.addItem(0, 3);
 	while (true) {
 		drawLine();
@@ -98,11 +98,11 @@ int main()
 		std::cout << "1. 레시피 추가" << std::endl;
 		std::cout << "2. 아이템 조합" << std::endl;
 		std::cout << "3. 공병 회수" << std::endl;
-		std::cout << "4. 아이템 인벤토리에 추가" << std::endl;
-		std::cout << "5. 레시피 이름으로 검색" << std::endl;
-		std::cout << "6. 재료로 레시피 검색" << std::endl;
+		std::cout << "4. 인벤토리에 아이템 추가" << std::endl;
+		std::cout << "5. 포션 이름으로 레시피 검색" << std::endl;
+		std::cout << "6. 재료 이름으로 레시피 검색" << std::endl;
 		std::cout << "7. 물약 판매" << std::endl;
-		std::cout << "8. 소지중인 아이템 출력" << std::endl;
+		std::cout << "8. 소지중인 아이템 확인" << std::endl;
 		std::cout << "9. 도감 확인" << std::endl;
 		std::cout << "0. 종료" << std::endl;
 		std::cout << "선택: ";
@@ -166,13 +166,20 @@ int main()
 					if (addResult.resultType == QueryResultType::Success
 						or addResult.resultType == QueryResultType::AlreadyExist) {
 						newRecipe.emplace(addResult.resultItemId, v);
-						inventory.addItem(addResult.resultItemId, 3);
 					}
 				}
-				QueryResult PotionId = itemDB.tryAddCustomItem(potionName, "", ItemType::Potion);
-				inventory.addItem(PotionId.resultItemId, 3);
+				QueryResult addPotionResult = itemDB.tryAddCustomItem(potionName, "", ItemType::Potion);
+				//기본 재고 3 추가.
 				newRecipe.emplace(0, 1);
-				craftManager.addCraftRecipe(newRecipe, PotionId.resultItemId);
+				CraftResult result = craftManager.addCraftRecipe(newRecipe, addPotionResult.resultItemId);
+				if (result.resultType == CraftResultType::Success) {
+					std::cout << potionName << " 제작법이 추가되었습니다. 기본 재고가 3개 추가됩니다." << std::endl;
+					inventory.addItem(addPotionResult.resultItemId, 3);
+				}
+				else if( result.resultType == CraftResultType::RecipeAlreadyExist ) {
+					std::cout << "재료 조합이 이미 존재하는 조합법입니다, 생성을 중단합니다." << std::endl;
+					itemDB.deleteItem(addPotionResult.resultItemId);
+				}
 
 			}
 			else {
@@ -181,6 +188,11 @@ int main()
 
 		}
 		else if (choice == 2) {
+			auto& recipes = craftManager.getAllRecipes();
+			if (not recipes.size()) {
+				cout << "저장된 레시피가 없습니다" << endl;
+				continue;
+			}
 			if (inventory.getItemCount(0) == 0) {
 				std::cout << "물약 제조에 사용할 빈 병이 없습니다. 회수해주세요." << std::endl;
 				choice = 0;
@@ -236,7 +248,8 @@ int main()
 						}
 					}
 					if (itemId != -1) {
-						if (not inventory.hasEnoughItem(itemId, count)) {
+						StoreResult result = inventory.hasEnoughItem(itemId, count);
+						if (result.resultType != StoreResultType::Success) {
 							std::cout << "투입할 재료가 부족합니다!" << std::endl;
 							ingredients_input.clear();
 							break;
@@ -249,10 +262,13 @@ int main()
 				}
 				if (!ingredients_input.empty() or cancelFlag == false) {
 					CraftResult craftResult = craftManager.customCraft(ingredients_input);
+					auto item = itemDB.getItemById(craftResult.resultItemId);
+					if (inventory.canStoreItem(craftResult.resultItemId, 1) == false) {
+						std::cout << item->getName() << "을(를) 저장할 공간이 없습니다. 취소합니다." << std::endl;
+					}
 					if (craftResult.resultType != CraftResultType::Success)
 						std::cout << "적합한 레시피가 없습니다, 제작에 실패했습니다." << std::endl;
 					else {
-						auto item = itemDB.getItemById(craftResult.resultItemId);
 						std::cout << item->getName() << "제작에 성공했습니다!" << std::endl;
 						for (auto [k, v] : ingredients_input) {
 							inventory.consumeItem(k, v);
@@ -273,14 +289,18 @@ int main()
 
 				QueryResult result = itemDB.getItemIdByName(name);
 				if (result.resultType == QueryResultType::Success) {
-
+					if(inventory.canStoreItem(result.resultItemId, 1) == false) {
+						std::cout << name << "을(를) 저장할 공간이 없습니다. 재고 판매후 진행해주세요." << std::endl;
+						continue;
+					}
 					CraftResult craftResult = craftManager.craft(result.resultItemId, inventory);
 
 					if (craftResult.resultType == CraftResultType::Success) {
 						std::cout << name << "제작에 성공했습니다" << std::endl;
 					}
 					//다양한 실패문구.
-					else {
+					else if (craftResult.resultType == CraftResultType::NotEnoughIngredient) {
+						std::cout << name << "을(를) 제작할 재료가 부족합니다." << std::endl;
 
 					}
 				}
@@ -297,8 +317,15 @@ int main()
 		else if (choice == 3) {
 			int bottleCount = inventory.getItemCount(0);
 			int recall = 3 - bottleCount;
-			std::cout << 3-bottleCount << "개의 빈 병을 회수합니다." << std::endl;
-			inventory.addItem(0, 3 - bottleCount);
+			if (recall != 0) {
+				std::cout << 3 - bottleCount << "개의 빈 병을 회수합니다." << std::endl;
+				inventory.addItem(0, recall);
+			}
+			else {
+				std::cout << "회수할 병이 없습니다" << std::endl;
+			}
+
+
 		}
 		else if (choice == 4) {
 			std::cout << "추가할 아이템의 이름이나 아이디, 갯수를 입력하세요." << std::endl;
@@ -311,27 +338,33 @@ int main()
 			std::cout << "개수 입력: ";
 			std::cin >> count;
 			std::cin.ignore(10000, '\n');
+			int id;
 			try {
 				//숫자변환가능한경우
-				int id = stoi(name);
-				if (itemDB.isItemExistById(id)) {
-					inventory.addItem(id, count);
-					std::cout << "인벤토리에 아이템이 추가되었습니다." << std::endl;
+				int sid = stoi(name);
+				if (itemDB.isItemExistById(sid)) {
+					id = sid;
 				}
 				else {
-					std::cout << "추가할 아이템이 존재하지 않습니다." << std::endl;
+					std::cout << "아이템을 찾을 수 없습니다." << std::endl;
 				}
 			}
 			catch (std::invalid_argument e) {
 				QueryResult result = itemDB.getItemIdByName(name);
 				if (result.resultType == QueryResultType::Success) {
-					inventory.addItem(result.resultItemId, count);
-					std::cout << "인벤토리에 아이템이 추가되었습니다." << std::endl;
+					id = result.resultItemId;
 				}
 				else {
-					std::cout << "추가할 아이템이 존재하지 않습니다." << std::endl;
+					std::cout << "아이템을 찾을 수 없습니다." << std::endl;
 				}
 			}
+			StoreResult addResult = inventory.addItem(id, count);
+			if (addResult.resultType == StoreResultType::Success)
+				std::cout << "인벤토리에 아이템이 추가되었습니다." << std::endl;
+			else if (addResult.resultType == StoreResultType::CannotStackItems)
+				std::cout << "해당 아이템을 더 가질 수 없습니다.(최대 재료 100, 포션 3개)" << std::endl;
+			else if (addResult.resultType == StoreResultType::AtLeastOneRequired)
+				std::cout << "최소 1개 입력해야합니다" << std::endl;
 
 
 		}
@@ -353,7 +386,7 @@ int main()
 		else if (choice == 6) {
 			printAllItemInventory(itemDB, inventory, ItemType::Material);
 			std::string name;
-			std::cout << "어디에 쓰이는지 알고싶은 재료 이름 입력 : ";
+			std::cout << "어디에 쓰이는지 알고싶은 재료 이름 입력(정확히 입력하세요) : ";
 			std::cin.ignore(10000, '\n');
 			std::getline(std::cin, name);
 
@@ -369,6 +402,11 @@ int main()
 			}
 		}
 		else if (choice == 7) {
+			auto& potions = inventory.searchItemsByType(ItemType::Potion);
+			if (potions.size() == 0) {
+				std::cout << "판매할 포션이 없습니다." << std::endl;
+				continue;
+			}
 			printAllItemInventory(itemDB, inventory, ItemType::Potion);
 			std::string name;
 			std::cout << "판매할 포션의 이름 입력 : ";
@@ -377,7 +415,8 @@ int main()
 
 			int resultId = findItemId(itemDB, name);
 			if (resultId != -1) {
-				if (inventory.hasEnoughItem(resultId, 1)) {
+				StoreResult result = inventory.hasEnoughItem(resultId, 1);
+				if (result.resultType == StoreResultType::Success) {
 					inventory.consumeItem(resultId, 1);
 					std::cout << name << "을(를) 판매하였습니다." << std::endl;
 
@@ -390,7 +429,24 @@ int main()
 
 		}
 		else if (choice == 8) {
-			printAllItemInventory(itemDB, inventory);
+			std::cout << "확인 방법을 선택하세요. 전체 : 1 / 검색 : 2 / 외 취소" << std::endl;
+			std::cin >> choice;
+			if (choice == 1) {
+				printAllItemInventory(itemDB, inventory);
+			}
+			else if (choice == 2) {
+				std::string search;
+				std::cout << "검색할 재료 이름 입력(일부분도 가능): ";
+				std::cin.ignore(10000, '\n');
+				std::getline(std::cin, search);
+				map<int, int> searchResult = inventory.searchItemsByName(search);
+				std::cout << "검색 결과: " << endl;
+				for (auto& [k, v] : searchResult) {
+					std::string name = itemDB.getItemById(k)->getName();
+					std::cout << name << " " << v << "개" << std::endl;
+				}
+				
+			}
 		}
 		else if (choice == 9) {
 			std::cout << "아이템 확인 : 1, 레시피 확인 : 2" << std::endl;
