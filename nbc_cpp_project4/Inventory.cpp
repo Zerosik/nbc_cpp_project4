@@ -1,5 +1,5 @@
 ﻿#include "Inventory.h"
-
+#include "ItemType.h"
 const std::map<int, int>& Inventory::getStock() const
 {
 	return stock;
@@ -7,6 +7,7 @@ const std::map<int, int>& Inventory::getStock() const
 
 int Inventory::getItemCount(int itemId) const
 {
+	int i;
 	auto it = stock.find(itemId);
 	if (it != stock.end()) {
 		return it->second;
@@ -14,59 +15,110 @@ int Inventory::getItemCount(int itemId) const
 	return 0;
 }
 
-bool Inventory::addItem(int itemId, int count)
+bool Inventory::canStoreItem(int itemId, int count)
 {
 	if (count <= 0)
+		return false;
+
+	const Item* item = database.getItemById(itemId);
+	if (item == nullptr)
 		return false;
 
 	auto it = stock.find(itemId);
 	if (it == stock.end()) {
-		if (count > maxStack)
+		if (count > item->getMaxStack())
 			return false;
+	}
+	else {
+		if ((it->second + count) > item->getMaxStack())
+			return false;
+	}
+	return true;
+}
+
+StoreResult Inventory::addItem(int itemId, int count)
+{
+	if (count <= 0)
+		return { StoreResultType::AtLeastOneRequired };
+
+	const Item* item = database.getItemById(itemId);
+	if (item == nullptr)
+		return { StoreResultType::ItemNotFound };
+
+	auto it = stock.find(itemId);
+	if (it == stock.end()) {
+		if (count > item->getMaxStack())
+			return { StoreResultType::ItemNotFound };
 		
 		stock[itemId] = count;
 	}
 	else {
-		if ((it->second + count) > maxStack)
-			return false;
+		if ((it->second + count) > item->getMaxStack())
+			return { StoreResultType::CannotStackItems };
 		else {
 			it->second += count;
 		}
 	}
-	return true;
+	return { StoreResultType::Success };
 }
 
-bool Inventory::consumeItem(int itemId, int count)
+StoreResult Inventory::consumeItem(int itemId, int count)
 {
 	if (count <= 0)
-		return false;
+		return { StoreResultType::AtLeastOneRequired};
 
-	if (!stock.contains(itemId)) {
-		return false;
+	auto it = stock.find(itemId);
+	if (it == stock.end()) {
+		return { StoreResultType::ItemNotFound};
 	}
 
 	if (stock.at(itemId) < count) {
-		return false;
+		return { StoreResultType::ItemNotEnough};
 	}
 
 	stock[itemId] -= count;
-
 	if (stock[itemId] == 0) {
 		stock.erase(itemId);
 	}
 
-	return true;
+	return { StoreResultType::Success};
 }
 
-bool Inventory::hasEnoughItem(int itemId, int count) const
+StoreResult Inventory::hasEnoughItem(int itemId, int count) const
 {
 	if (count <= 0)
-		return false;
+		return { StoreResultType::AtLeastOneRequired};
 
 	auto it = stock.find(itemId);
 	if (it == stock.end()){
-		return false;
+		return { StoreResultType::ItemNotEnough };
 	}
-
-	return it->second >= count;
+	if (it->second >= count)
+		return { StoreResultType::Success };
+	return { StoreResultType::ItemNotEnough};//it->second >= count;
 }
+
+const std::map<int, int> Inventory::searchItemsByName(std::string name) const
+{
+	std::map<int, int> result;
+	for (auto& [k, v] : stock) {
+		const Item* item = database.getItemById(k);
+		if (item->getName().find(name) != std::string::npos) {
+			result.emplace(k, v);
+		}
+	}
+	return result;
+}
+
+const std::map<int, int> Inventory::searchItemsByType(ItemType type) const
+{
+	std::map<int, int> result;
+	for (auto& [k, v] : stock) {
+		const Item* item = database.getItemById(k);
+		if (item->getItemType() == type) {
+			result.emplace(k, v);
+		}
+	}
+	return result;
+}
+

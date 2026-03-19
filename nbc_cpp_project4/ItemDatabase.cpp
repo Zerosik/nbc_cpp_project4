@@ -6,12 +6,30 @@ void ItemDatabase::initializeItemDatabase()
 	//itemDatabase.insert({ 100, Item{100, "초급 회복 물약","기초적인 회복 물약."} });
 }
 
+int ItemDatabase::getItemDefaultStack(ItemType type)
+{
+	switch (type) {
+	case ItemType::Material:
+		return 100;
+	case ItemType::Potion:
+		return 3;
+	default:
+		return -1;
+	}
+}
+
 const std::map<int, Item>& ItemDatabase::getAllItems() const
 {
 	return itemDatabase;
 }
 
-QueryResult ItemDatabase::tryAddCustomItem(const std::string& name, const std::string& desc, ItemType type) {
+QueryResult ItemDatabase::tryAddCustomItem(const std::string& name, const std::string& desc, ItemType type)
+{
+	int maxStack = getItemDefaultStack(type);
+	return tryAddCustomItem(name, desc, type, maxStack);
+}
+
+QueryResult ItemDatabase::tryAddCustomItem(const std::string& name, const std::string& desc, ItemType type, int maxStack) {
 	//아이템 존재하는지 먼저 체크
 	for (const auto& [k, v] : itemDatabase) {
 		if (v.getName() == name) {
@@ -30,12 +48,16 @@ QueryResult ItemDatabase::tryAddCustomItem(const std::string& name, const std::s
 	default:
 		return { QueryResultType::InvalidItemType, -1 };
 	}
+	if (maxStack == -1) {
+		maxStack = getItemDefaultStack(type);
+	}
+
 
 	//신규 아이템 추가
 	for(int idx = startIdx ; idx < endIdx ; idx++){
 		//아이템 ID가 사용중이지 않으면 해당 아이디 사용.
 		if (itemDatabase.contains(idx) == false) {
-			itemDatabase.emplace(idx, Item{ idx, name, desc, type });
+			itemDatabase.emplace(idx, Item{ idx, name, desc, type, maxStack });
 			return { QueryResultType::Success, idx };
 		}
 	}
@@ -75,4 +97,9 @@ QueryResult ItemDatabase::getItemIdByName(const std::string& name) const
 		}
 	}
 	return { QueryResultType::ItemNotFound , -1 };
+}
+
+void ItemDatabase::deleteItem(int id)
+{
+	itemDatabase.erase(id);
 }

@@ -31,14 +31,15 @@ CraftResult CraftingManager::craft(int itemId, Inventory& inventory)
 	//재고 충분한지 확인
 	const std::map<int,int>& requiredIngredients = recipe->getIngredients();
 	for (const auto& [id, count] : requiredIngredients) {
-		if (inventory.hasEnoughItem(id, count) == false) {
+		StoreResult result = inventory.hasEnoughItem(id, count);
+		if (result.resultType == StoreResultType::ItemNotEnough) {
 			return { CraftResultType::NotEnoughIngredient, -1 };
 		}
 	}
 
 	for (const auto& [id, count] : requiredIngredients) {
-		bool consumed =inventory.consumeItem(id, count);
-		if (consumed == false) {
+		StoreResult result = inventory.consumeItem(id, count);
+		if (result.resultType == StoreResultType::Success) {
 			//앞에서 체크했는데 소모가 안되면???
 			//원자성을 유지할 방법 생각
 		}
@@ -48,14 +49,22 @@ CraftResult CraftingManager::craft(int itemId, Inventory& inventory)
 	return { CraftResultType::Success, recipe->getResultItemId() };
 }
 
-bool CraftingManager::addCraftRecipe(const std::map<int, int>& items, const int resultItemId)
+CraftResult CraftingManager::addCraftRecipe(const std::map<int, int>& items, const int resultItemId)
 {
-	if (findRecipeByResultItemId(resultItemId) == nullptr) {
-		CraftRecipe newRecipe{ resultItemId, items };
-		craftRecipes.push_back(newRecipe);
-		return true;
+	if (findRecipeByResultItemId(resultItemId) != nullptr) {
+		return { CraftResultType::RecipeAlreadyExist, resultItemId};
 	}
-	return false;
+	CraftRecipe newRecipe{ resultItemId, items };
+	
+	for (auto &it : craftRecipes) {
+		if (it.getIngredients() == items) {
+			return { CraftResultType::RecipeAlreadyExist, it.getResultItemId()};
+		}
+	}
+
+
+	craftRecipes.push_back(newRecipe);
+	return { CraftResultType::Success, resultItemId };
 }
 
 const CraftRecipe* CraftingManager::findRecipeByResultItemId(const int id) const
@@ -98,7 +107,8 @@ std::vector<int> CraftingManager::findRecipesByInventory(const Inventory& invent
 		bool isCraftable = true;
 		const auto& ingredient = recipe.getIngredients();
 		for (const auto& [k, v] : ingredient) {
-			if (inventory.hasEnoughItem(k, v) == false) {
+			StoreResult result = inventory.hasEnoughItem(k, v);
+			if (result.resultType == StoreResultType::ItemNotEnough) {
 				isCraftable = false;
 				break;
 			}
